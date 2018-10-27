@@ -1,8 +1,11 @@
 [package]
-name = "libsamplerate"
+name = "samplerate"
 version = "0.1.0"
 authors = ["prior"]
 edition = "2018"
 
 [dependencies]
 libsamplerate-sys = { git = "https://github.com/Prior99/libsamplerate-sys.git" }
+
+[dev-dependencies]
+hound = "*"
