@@ -5,7 +5,7 @@ authors = ["prior"]
 edition = "2018"
 
 [dependencies]
-libsamplerate-sys = { git = "https://github.com/Prior99/libsamplerate-sys.git" }
+libsamplerate-sys = "0.1"
 
 [dev-dependencies]
-hound = "*"
+hound = "3.4"
