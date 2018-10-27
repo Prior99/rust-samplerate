@@ -21,12 +21,12 @@ fn main() {
     let resampled = convert(44100, 48000, 1, ConverterType::SincBestQuality, &input).unwrap();
 
     // Write the resampled pcm data to disk.
-    let mut writer_48000 = WavWriter::create("sine-48000.wav", WavSpec {
+    let mut writer = WavWriter::create("resampled.wav", WavSpec {
         channels: 1,
         sample_rate: 48000,
         bits_per_sample: 32,
         sample_format: SampleFormat::Float,
     }).unwrap();
-    resampled.iter().for_each(|i| writer_48000.write_sample(*i).unwrap());
+    resampled.iter().for_each(|i| writer.write_sample(*i).unwrap());
 }
 ```
