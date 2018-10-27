@@ -5,3 +5,18 @@ rust:
 os:
   - linux
   - osx
+
+addons:
+  apt:
+    sources:
+      - ubuntu-toolchain-r-test
+    packages:
+      - gcc-8
+      - cmake
+      - make
+      - libclang-dev
+
+cache:
+  directories:
+  - build
+  - cargo
