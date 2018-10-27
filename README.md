@@ -1,5 +1,7 @@
 # Samplerate
 
+[![Build Status](https://travis-ci.org/Prior99/rust-samplerate.svg?branch=master)](https://travis-ci.org/Prior99/rust-samplerate)
+
 A samplerate conversion library for Rust.
 This library provides a high-level API for [libsamplerate-sys](https://github.com/Prior99/libsamplerate-sys) and hence is built on top of [libsamplerate](http://www.mega-nerd.com/SRC/api.html).
 
