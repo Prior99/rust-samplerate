@@ -1,7 +1,7 @@
 [package]
 name = "samplerate"
 version = "0.1.0"
-authors = ["prior"]
+authors = ["Frederick Gnodtke <frederick@gnodtke.net>"]
 readme = "README.md"
 categories = ["multimedia::audio"]
 description = "A library based on libsamplerate for converting samplerates"
