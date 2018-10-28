@@ -34,8 +34,8 @@ pub fn convert(from_rate: usize, to_rate: usize, channels: usize, converter_type
     let mut src = SRC_DATA {
         data_in: input.as_ptr(),
         data_out: output.as_mut_ptr(),
-        input_frames: input.len() as i64,
-        output_frames: output_len as i64,
+        input_frames: input.len() as i32,
+        output_frames: output_len as i32,
         src_ratio: ratio,
         end_of_input: 0,
         input_frames_used: 0,
