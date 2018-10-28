@@ -99,7 +99,7 @@ impl Samplerate {
     /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
     /// interleaved.
     pub fn process(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
-        let output_len = (self.ratio() * input.len() as f64) as usize;
+        let output_len = (self.ratio() * input.len() as f64 * self.channels()? as f64) as usize;
         let mut output = vec![0f32;output_len];
         let mut src = SRC_DATA {
             data_in: input.as_ptr(),
