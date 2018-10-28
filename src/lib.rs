@@ -27,9 +27,9 @@ use std::ffi::CStr;
 /// let resampled = convert(44100, 48000, 1, ConverterType::SincBestQuality, &input).unwrap();
 /// assert_eq!(resampled.len(), 48000);
 /// ```
-pub fn convert(from_rate: usize, to_rate: usize, channels: usize, converter_type: ConverterType, input: &[f32]) -> Result<Vec<f32>, Error> {
+pub fn convert(from_rate: u32, to_rate: u32, channels: usize, converter_type: ConverterType, input: &[f32]) -> Result<Vec<f32>, Error> {
     let ratio = to_rate as f64 / from_rate as f64;
-    let output_len = (ratio * input.len() as f64) as usize;
+    let output_len = (ratio * channels as f64 * input.len() as f64) as usize;
     let mut output = vec![0f32;output_len];
     let mut src = SRC_DATA {
         data_in: input.as_ptr(),
