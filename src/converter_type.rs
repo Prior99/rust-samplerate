@@ -15,13 +15,13 @@ pub enum ConverterType {
 
 impl ConverterType {
     /// Create a new `ConverterType` enum from the corresponding integer.
-    pub fn from_int(value: u32) -> Result<ConverterType, Error> {
+    pub fn from_int(value: isize) -> Result<ConverterType, Error> {
         match value {
-            SRC_SINC_BEST_QUALITY => Ok(ConverterType::SincBestQuality),
-            SRC_SINC_MEDIUM_QUALITY => Ok(ConverterType::SincMediumQuality),
-            SRC_SINC_FASTEST => Ok(ConverterType::SincFastest),
-            SRC_ZERO_ORDER_HOLD => Ok(ConverterType::ZeroOrderHold),
-            SRC_LINEAR => Ok(ConverterType::Linear),
+            0 => Ok(ConverterType::SincBestQuality),
+            1 => Ok(ConverterType::SincMediumQuality),
+            2 => Ok(ConverterType::SincFastest),
+            3 => Ok(ConverterType::ZeroOrderHold),
+            4 => Ok(ConverterType::Linear),
             _ => Err(Error::from_code(ErrorCode::BadConverter)),
         }
     }
