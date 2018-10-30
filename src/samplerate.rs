@@ -100,7 +100,7 @@ impl Samplerate {
     /// interleaved.
     pub fn process(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
         let channels = self.channels()?;
-        let output_len = (self.ratio() * input.len() as f64 * channels  as f64) as usize;
+        let output_len = (self.ratio() * input.len() as f64) as usize;
         let mut output = vec![0f32;output_len];
         let mut src = SRC_DATA {
             data_in: input.as_ptr(),
