@@ -111,6 +111,7 @@ impl Samplerate {
             end_of_input: 0,
             input_frames_used: 0,
             output_frames_gen: 0,
+            ..Default::default()
         };
         let error_int = unsafe { src_process(self.ptr, &mut src as *mut SRC_DATA) };
         match ErrorCode::from_int(error_int) {
