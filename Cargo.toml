@@ -10,7 +10,7 @@ keywords = ["audio", "samplerate"]
 license = "BSD-2-Clause"
 
 [dependencies]
-libsamplerate-sys = "0.1"
+libsamplerate-sys = "0.1.5"
 
 [dev-dependencies]
 hound = "3.4"
