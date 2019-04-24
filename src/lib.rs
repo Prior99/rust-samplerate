@@ -40,6 +40,7 @@ pub fn convert(from_rate: u32, to_rate: u32, channels: usize, converter_type: Co
         end_of_input: 0,
         input_frames_used: 0,
         output_frames_gen: 0,
+        ..Default::default()
     };
     let error_int = unsafe { src_simple(&mut src as *mut SRC_DATA, converter_type as i32, channels as i32) };
     let error_code = ErrorCode::from_int(error_int);

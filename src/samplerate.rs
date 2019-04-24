@@ -19,7 +19,7 @@ use std::clone::Clone;
 /// let mut converter = Samplerate::new(ConverterType::SincBestQuality, 44100, 48000, 1).unwrap();
 ///
 /// // Resample the input from 44100Hz to 48000Hz.
-/// let resampled = converter.process(&input).unwrap();
+/// let resampled = converter.process_last(&input).unwrap();
 /// assert_eq!(resampled.len(), 48000);
 /// ```
 pub struct Samplerate {
@@ -95,12 +95,8 @@ impl Samplerate {
         }
     }
 
-    /// Perform a samplerate conversion of the given input data.
-    /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
-    /// interleaved.
-    pub fn process(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
+    fn _process(&self, input: &[f32], output_len: usize, end_of_input: bool) -> Result<Vec<f32>, Error> {
         let channels = self.channels()?;
-        let output_len = (self.ratio() * input.len() as f64) as usize;
         let mut output = vec![0f32;output_len];
         let mut src = SRC_DATA {
             data_in: input.as_ptr(),
@@ -108,14 +104,47 @@ impl Samplerate {
             input_frames: (input.len() as i32 / channels as i32).into(),
             output_frames: (output_len as i32 / channels as i32).into(),
             src_ratio: self.ratio(),
-            end_of_input: 0,
+            end_of_input: if end_of_input { 1 } else { 0 },
             input_frames_used: 0,
             output_frames_gen: 0,
+            ..Default::default()
         };
         let error_int = unsafe { src_process(self.ptr, &mut src as *mut SRC_DATA) };
         match ErrorCode::from_int(error_int) {
-            ErrorCode::NoError => Ok(output),
+            ErrorCode::NoError => Ok(output[..src.output_frames_gen as usize*channels].into()),
             _ => Err(Error::from_int(error_int)),
+        }
+    }
+
+    /// Perform a samplerate conversion on a block of data (use `process_last` if it is the last one)
+    /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
+    /// interleaved.
+    pub fn process(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
+        self._process(input, (self.ratio() * input.len() as f64) as usize, false)
+    }
+    
+    /// Perform a samplerate conversion on last block of given input data.
+    /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
+    /// interleaved.
+    pub fn process_last(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
+        let output_len = (self.ratio() * input.len() as f64) as usize;
+        match self._process(input, output_len, true) {
+            Ok(mut output) => {
+                loop {
+                    match self._process(&[0f32; 0], output_len, true) {
+                        Ok(output_last) => {
+                            if output_last.len() < 1 {
+                                break;
+                            } else {
+                                output.extend(output_last);
+                            }
+                        },
+                        Err(err) => return Err(err)
+                    }
+                }
+                Ok(output)
+            },
+            Err(err) => Err(err)
         }
     }
 }
@@ -174,15 +203,22 @@ mod tests {
         // Generate a 880Hz sine wave for 1 second in 44100Hz with one channel.
         let freq = std::f32::consts::PI * 880f32 / 44100f32;
         let input: Vec<f32> = (0..44100).map(|i| (freq * i as f32).sin()).collect();
+
         // Create a new converter.
         let mut converter = Samplerate::new(ConverterType::SincBestQuality, 44100, 48000, 1).unwrap();
+
         // Resample the audio in chunks.
         let mut resampled = vec![0f32;0];
         let chunk_size = 4410; // 100ms
         for i in 0..input.len() / chunk_size {
-            resampled.extend(converter.process(&input[i * chunk_size .. (i + 1) * chunk_size]).unwrap());
+            resampled.extend(if i < (input.len() / chunk_size - 1) {
+                converter.process(&input[i * chunk_size .. (i + 1) * chunk_size]).unwrap()
+            } else {
+                converter.process_last(&input[i * chunk_size .. (i + 1) * chunk_size]).unwrap()
+            });
         }
         assert_eq!(resampled.len(), 48000);
+
         // Resample the audio back.
         converter.reset().unwrap();
         converter.set_to_rate(44100);
@@ -190,12 +226,17 @@ mod tests {
         let mut output = vec![0f32;0];
         let chunk_size = 4800; // 100ms
         for i in 0..resampled.len() / chunk_size {
-            output.extend(converter.process(&resampled[i * chunk_size .. (i + 1) * chunk_size]).unwrap());
+            output.extend(if i < (resampled.len() / chunk_size - 1) {
+                converter.process(&resampled[i * chunk_size .. (i + 1) * chunk_size]).unwrap()
+            } else {
+                converter.process_last(&resampled[i * chunk_size .. (i + 1) * chunk_size]).unwrap()
+            });
         }
         assert_eq!(output.len(), 44100);
+
         // Expect the difference between all input frames and all output frames to be less than
         // an epsilon.
         let error = input.iter().zip(output).fold(0f32, |max, (input, output)| max.max((input - output).abs()));
-        assert!(error < 1.5);
+        assert!(error < 0.002);
     }
 }
