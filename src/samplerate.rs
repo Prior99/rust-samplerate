@@ -120,14 +120,16 @@ impl Samplerate {
     /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
     /// interleaved.
     pub fn process(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
-        self._process(input, (self.ratio() * input.len() as f64) as usize, false)
+        let channels = self.channels()?;
+        self._process(input, (self.ratio() * input.len() as f64) as usize + channels, false)
     }
     
     /// Perform a samplerate conversion on last block of given input data.
     /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
     /// interleaved.
     pub fn process_last(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
-        let output_len = (self.ratio() * input.len() as f64) as usize;
+        let channels = self.channels()?;
+        let output_len = (self.ratio() * input.len() as f64) as usize + channels;
         match self._process(input, output_len, true) {
             Ok(mut output) => {
                 loop {
