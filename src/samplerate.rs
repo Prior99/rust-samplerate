@@ -1,6 +1,11 @@
 use crate::converter_type::ConverterType;
 use crate::error::{Error, ErrorCode};
+
+#[cfg(feature = "sys")]
 use libsamplerate_sys::*;
+#[cfg(feature = "pure-rust")]
+use libsamplerate::*;
+
 use std::clone::Clone;
 
 /// A samplerate converter. This is a wrapper around libsamplerate's `SRC_STATE` which also
@@ -107,7 +112,7 @@ impl Samplerate {
             end_of_input: if end_of_input { 1 } else { 0 },
             input_frames_used: 0,
             output_frames_gen: 0,
-            ..Default::default()
+            ..unsafe { std::mem::zeroed() }
         };
         let error_int = unsafe { src_process(self.ptr, &mut src as *mut SRC_DATA) };
         match ErrorCode::from_int(error_int) {

@@ -1,4 +1,8 @@
+#[cfg(feature = "sys")]
 use libsamplerate_sys::*;
+#[cfg(feature = "pure-rust")]
+use libsamplerate::*;
+
 use std::ffi::CStr;
 use crate::error::{Error, ErrorCode};
 
