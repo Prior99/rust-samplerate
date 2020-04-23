@@ -12,6 +12,9 @@ use std::ffi::CStr;
 use std::convert::TryInto;
 
 #[cfg(test)]
+extern crate rstest;
+
+#[cfg(test)]
 mod sanity_test;
 
 /// Perform a simple samplerate conversion of a large chunk of audio.
