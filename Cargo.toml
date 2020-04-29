@@ -14,3 +14,4 @@ libsamplerate-sys = "0.1.5"
 
 [dev-dependencies]
 hound = "3.4"
+rstest = "0.6"

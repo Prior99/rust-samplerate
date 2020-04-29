@@ -9,10 +9,20 @@ pub use crate::error::*;
 pub use crate::samplerate::*;
 use libsamplerate_sys::*;
 use std::ffi::CStr;
+use std::convert::TryInto;
+
+#[cfg(test)]
+extern crate rstest;
+
+#[cfg(test)]
+mod sanity_test;
 
 /// Perform a simple samplerate conversion of a large chunk of audio.
 /// This calls `src_simple` of libsamplerate which is not suitable for streamed audio. Use the
 /// `Samplerate` struct instead for this.
+/// 
+/// The length of `input` must be `input_frame_count * channels`.
+/// The length of result `Vec<f32>` should be `input_frames * to_rate + (from_rate - 1)) / from_rate`
 ///
 /// # Example
 ///
@@ -28,14 +38,17 @@ use std::ffi::CStr;
 /// assert_eq!(resampled.len(), 48000);
 /// ```
 pub fn convert(from_rate: u32, to_rate: u32, channels: usize, converter_type: ConverterType, input: &[f32]) -> Result<Vec<f32>, Error> {
+    let input_len = input.len();
+    assert_eq!(input_len % channels, 0);
+    let input_frames = input_len / channels;
     let ratio = to_rate as f64 / from_rate as f64;
-    let output_len = (ratio * channels as f64 * input.len() as f64) as usize;
-    let mut output = vec![0f32;output_len];
+    let output_frames = (input_frames * to_rate as usize + (from_rate as usize - 1)) / from_rate as usize;
+    let mut output = vec![0f32;output_frames * channels];
     let mut src = SRC_DATA {
         data_in: input.as_ptr(),
         data_out: output.as_mut_ptr(),
-        input_frames: (input.len() as i32).into(),
-        output_frames: (output_len as i32).into(),
+        input_frames: input_frames.try_into().unwrap(),
+        output_frames: output_frames.try_into().unwrap(),
         src_ratio: ratio,
         end_of_input: 0,
         input_frames_used: 0,
@@ -62,20 +75,5 @@ mod tests {
     #[test]
     fn correct_version() {
         assert_eq!(version(), "libsamplerate-0.1.9 (c) 2002-2008 Erik de Castro Lopo");
-    }
-
-    #[test]
-    fn simple_sample_rate_conversion() {
-        // Setup sample data and storage.
-        let freq = ::std::f32::consts::PI * 880f32 / 44100f32;
-        let input: Vec<f32> = (0..44100).map(|i| (freq * i as f32).sin()).collect();
-        // Convert from 44100Hz to 48000Hz.
-        let resampled = convert(44100, 48000, 1, ConverterType::SincBestQuality, &input).unwrap();
-        // Convert back to 44100Hz.
-        let output = convert(48000, 44100, 1, ConverterType::SincBestQuality, &resampled).unwrap();
-        // Expect the difference between all input frames and all output frames to be less than
-        // an epsilon.
-        let error = input.iter().zip(output).fold(0f32, |max, (input, output)| max.max((input - output).abs()));
-        assert!(error < 0.002);
     }
 }
