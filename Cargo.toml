@@ -12,7 +12,13 @@ keywords = ["audio", "samplerate"]
 license = "BSD-2-Clause"
 
 [dependencies]
-libsamplerate-sys = "0.1.5"
+libsamplerate-sys = { version = "0.1.5", optional = true }
+libsamplerate = { version = "0.1.0", optional = true }
+
+[features]
+default = ["pure-rust"]
+pure-rust = ["libsamplerate"]
+sys = ["libsamplerate-sys"]
 
 [dev-dependencies]
 hound = "3.4"
