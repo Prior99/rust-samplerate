@@ -1,8 +1,6 @@
-cargo-features = ["rename-dependency"]
-
 [package]
 name = "samplerate"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Frederick Gnodtke <frederick@gnodtke.net>"]
 readme = "README.md"
 categories = ["multimedia::audio"]
@@ -12,7 +10,7 @@ keywords = ["audio", "samplerate"]
 license = "BSD-2-Clause"
 
 [dependencies]
-libsamplerate-sys = "0.1.5"
+libsamplerate-sys = "0.1.9"
 
 [dev-dependencies]
 hound = "3.4"
