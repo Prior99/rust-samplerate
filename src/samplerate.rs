@@ -40,13 +40,11 @@ impl Samplerate {
         let mut error_int = 0i32;
         let ptr: *mut SRC_STATE = unsafe { src_new(converter_type as i32, channels as i32, &mut error_int as *mut i32) };
         match ErrorCode::from_int(error_int) {
-            ErrorCode::NoError => {
-                Ok(Samplerate {
-                    ptr,
-                    from_rate,
-                    to_rate,
-                })
-            },
+            ErrorCode::NoError => Ok(Samplerate {
+                ptr,
+                from_rate,
+                to_rate,
+            }),
             _ => Err(Error::from_int(error_int)),
         }
     }
@@ -91,13 +89,13 @@ impl Samplerate {
         if channels >= 0 {
             Ok(channels as usize)
         } else {
-            Err(Error::from_int(channels))
+            Err(Error::from_int(-channels))
         }
     }
 
     fn _process(&self, input: &[f32], output_len: usize, end_of_input: bool) -> Result<Vec<f32>, Error> {
         let channels = self.channels()?;
-        let mut output = vec![0f32;output_len];
+        let mut output = vec![0f32; output_len];
         let mut src = SRC_DATA {
             data_in: input.as_ptr(),
             data_out: output.as_mut_ptr(),
@@ -111,22 +109,58 @@ impl Samplerate {
         };
         let error_int = unsafe { src_process(self.ptr, &mut src as *mut SRC_DATA) };
         match ErrorCode::from_int(error_int) {
-            ErrorCode::NoError => Ok(output[..src.output_frames_gen as usize*channels].into()),
-            _ => Err(Error::from_int(error_int)),
+            ErrorCode::NoError => Ok(output[..src.output_frames_gen as usize * channels].into()),
+            code => Err(Error::from_code(code)),
+        }
+    }
+
+    fn _process_into(&self, input: &[f32], output: &mut [f32], end_of_input: bool) -> Result<(usize, usize), Error> {
+        let channels = self.channels()?;
+        let mut src = SRC_DATA {
+            data_in: input.as_ptr(),
+            data_out: output.as_mut_ptr(),
+            input_frames: (input.len() as i32 / channels as i32).into(),
+            output_frames: (output.len() as i32 / channels as i32).into(),
+            src_ratio: self.ratio(),
+            end_of_input: if end_of_input { 1 } else { 0 },
+            input_frames_used: 0,
+            output_frames_gen: 0,
+            ..Default::default()
+        };
+        let error_int = unsafe { src_process(self.ptr, &mut src as *mut SRC_DATA) };
+        match ErrorCode::from_int(error_int) {
+            ErrorCode::NoError => Ok((src.input_frames_used as usize, src.output_frames_gen as usize)),
+            code => Err(Error::from_code(code)),
         }
     }
 
     /// Perform a samplerate conversion on a block of data (use `process_last` if it is the last one)
     /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
     /// interleaved.
+    ///
+    /// Will allocate a new [Vec] to store the result of the conversion (use `process_into` to use
+    /// an existing buffer).
     pub fn process(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
         let channels = self.channels()?;
         self._process(input, (self.ratio() * input.len() as f64) as usize + channels, false)
     }
-    
+
+    /// Perform a samplerate conversion on a block of data (use `process_last_into` if it is the last one)
+    /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
+    /// interleaved.
+    ///
+    /// Will write its output to the specified buffer (use `process` to let a [Vec] be constructed
+    /// to store the result of the conversion.
+    pub fn process_into(&self, input: &[f32], output: &mut [f32]) -> Result<(usize, usize), Error> {
+        self._process_into(input, output, false)
+    }
+
     /// Perform a samplerate conversion on last block of given input data.
     /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
     /// interleaved.
+    ///
+    /// Will allocate a new [Vec] to store the result of the final conversion (use `process_into_last`
+    /// to use an existing buffer).
     pub fn process_last(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
         let channels = self.channels()?;
         let output_len = (self.ratio() * input.len() as f64) as usize + channels;
@@ -140,14 +174,27 @@ impl Samplerate {
                             } else {
                                 output.extend(output_last);
                             }
-                        },
+                        }
                         Err(err) => return Err(err)
                     }
                 }
                 Ok(output)
-            },
+            }
             Err(err) => Err(err)
         }
+    }
+
+    /// Perform a samplerate conversion on a last block of given input data.
+    /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
+    /// interleaved.
+    ///
+    /// Will write its output to the specified buffer (use `process_last` to let a [Vec] be constructed
+    /// to store the result of the conversion.
+    ///
+    /// Note: you may need to call this function multiple times with an empty `input` to drain the
+    /// internal buffer.
+    pub fn process_into_last(&self, input: &[f32], output: &mut [f32]) -> Result<(usize, usize), Error> {
+        self._process_into(input, output, true)
     }
 }
 
@@ -210,13 +257,13 @@ mod tests {
         let mut converter = Samplerate::new(ConverterType::SincBestQuality, 44100, 48000, 1).unwrap();
 
         // Resample the audio in chunks.
-        let mut resampled = vec![0f32;0];
+        let mut resampled = vec![0f32; 0];
         let chunk_size = 4410; // 100ms
         for i in 0..input.len() / chunk_size {
             resampled.extend(if i < (input.len() / chunk_size - 1) {
-                converter.process(&input[i * chunk_size .. (i + 1) * chunk_size]).unwrap()
+                converter.process(&input[i * chunk_size..(i + 1) * chunk_size]).unwrap()
             } else {
-                converter.process_last(&input[i * chunk_size .. (i + 1) * chunk_size]).unwrap()
+                converter.process_last(&input[i * chunk_size..(i + 1) * chunk_size]).unwrap()
             });
         }
         assert_eq!(resampled.len(), 48000);
@@ -225,16 +272,84 @@ mod tests {
         converter.reset().unwrap();
         converter.set_to_rate(44100);
         converter.set_from_rate(48000);
-        let mut output = vec![0f32;0];
+        let mut output = vec![0f32; 0];
         let chunk_size = 4800; // 100ms
         for i in 0..resampled.len() / chunk_size {
             output.extend(if i < (resampled.len() / chunk_size - 1) {
-                converter.process(&resampled[i * chunk_size .. (i + 1) * chunk_size]).unwrap()
+                converter.process(&resampled[i * chunk_size..(i + 1) * chunk_size]).unwrap()
             } else {
-                converter.process_last(&resampled[i * chunk_size .. (i + 1) * chunk_size]).unwrap()
+                converter.process_last(&resampled[i * chunk_size..(i + 1) * chunk_size]).unwrap()
             });
         }
         assert_eq!(output.len(), 44100);
+
+        // Expect the difference between all input frames and all output frames to be less than
+        // an epsilon.
+        let error = input.iter().zip(output).fold(0f32, |max, (input, output)| max.max((input - output).abs()));
+        assert!(error < 0.002);
+    }
+
+    #[test]
+    fn samplerate_conversion_into() {
+        // Generate a 880Hz sine wave for 1 second in 44100Hz with one channel.
+        let freq = std::f32::consts::PI * 880f32 / 44100f32;
+        let input: Vec<f32> = (0..44100).map(|i| (freq * i as f32).sin()).collect();
+
+        // Create a new converter.
+        let mut converter = Samplerate::new(ConverterType::SincBestQuality, 44100, 48000, 1).unwrap();
+
+        // Resample the audio in chunks.
+        let mut resampled = vec![0f32; 0];
+        let chunk_size = 4410; // 100ms
+        let mut resampled_buff: Vec<f32> = vec![0.; chunk_size * 480 / 441 + 1];
+        let mut frame_ptr = 0;
+        while frame_ptr < input.len() {
+            let (input_used, output_generated) = if input.len() - frame_ptr > chunk_size {
+                converter.process_into(&input[frame_ptr..frame_ptr + chunk_size.min(input.len() - frame_ptr)], &mut resampled_buff).unwrap()
+            } else {
+                converter.process_into_last(&input[frame_ptr..], &mut resampled_buff).unwrap()
+            };
+            frame_ptr += input_used;
+            resampled.extend(&resampled_buff[..output_generated])
+        }
+        // Drain the remaining resample buffer
+        loop {
+            let (input_used, output_generated) = converter.process_into_last(&[0.; 0], &mut resampled_buff).unwrap();
+            if output_generated == 0 {
+                break;
+            }
+            resampled.extend(&resampled_buff[..output_generated])
+        }
+        assert_eq!(resampled.len(), 48000);
+
+        // Resample the audio back.
+        converter.reset().unwrap();
+        converter.set_to_rate(44100);
+        converter.set_from_rate(48000);
+        let mut output = vec![0f32; 0];
+        let chunk_size = 4800; // 100ms
+        let mut resampled_buff = vec![0f32; chunk_size * 441 / 480 + 1];
+        let mut frame_ptr = 0;
+        while frame_ptr < resampled.len() {
+            let (input_used, output_generated) = if resampled.len() - frame_ptr > chunk_size {
+                converter.process_into(&resampled[frame_ptr..frame_ptr + chunk_size.min(resampled.len() - frame_ptr)], &mut resampled_buff).unwrap()
+            } else {
+                converter.process_into_last(&resampled[frame_ptr..], &mut resampled_buff).unwrap()
+            };
+            frame_ptr += input_used;
+            output.extend(&resampled_buff[..output_generated])
+        }
+        // Drain the remaining resample buffer
+        loop {
+            let (input_used, output_generated) = converter.process_into_last(&[0.; 0], &mut resampled_buff).unwrap();
+            if output_generated == 0 {
+                break;
+            }
+            output.extend(&resampled_buff[..output_generated])
+        }
+        assert_eq!(output.len(), 44100);
+
+        let mut invalid = 0;
 
         // Expect the difference between all input frames and all output frames to be less than
         // an epsilon.
