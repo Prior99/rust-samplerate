@@ -65,7 +65,7 @@ impl ErrorCode {
     /// Return the human-readable description for this error.
     pub fn description(&self) -> &'static str {
         match self {
-            ErrorCode::Unknown => "Unkown error.",
+            ErrorCode::Unknown => "Unknown error.",
             _ => unsafe {
                 CStr::from_ptr(src_strerror(*self as i32))
             }.to_str().unwrap()
@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(ErrorCode::SincPrepareDataBadLen.description(), "Internal error : Bad length in prepare_data ().");
         assert_eq!(ErrorCode::BadInternalState.description(), "Error : Someone is trampling on my internal state.");
         assert_eq!(ErrorCode::MaxError.description(), "Placeholder. No error defined for this error number.");
-        assert_eq!(ErrorCode::Unknown.description(), "Unkown error.");
+        assert_eq!(ErrorCode::Unknown.description(), "Unknown error.");
     }
 
     #[test]

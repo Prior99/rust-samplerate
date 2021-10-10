@@ -314,7 +314,7 @@ mod tests {
         }
         // Drain the remaining resample buffer
         loop {
-            let (input_used, output_generated) = converter.process_into_last(&[0.; 0], &mut resampled_buff).unwrap();
+            let (_, output_generated) = converter.process_into_last(&[0.; 0], &mut resampled_buff).unwrap();
             if output_generated == 0 {
                 break;
             }
@@ -341,15 +341,13 @@ mod tests {
         }
         // Drain the remaining resample buffer
         loop {
-            let (input_used, output_generated) = converter.process_into_last(&[0.; 0], &mut resampled_buff).unwrap();
+            let (_, output_generated) = converter.process_into_last(&[0.; 0], &mut resampled_buff).unwrap();
             if output_generated == 0 {
                 break;
             }
             output.extend(&resampled_buff[..output_generated])
         }
         assert_eq!(output.len(), 44100);
-
-        let mut invalid = 0;
 
         // Expect the difference between all input frames and all output frames to be less than
         // an epsilon.
