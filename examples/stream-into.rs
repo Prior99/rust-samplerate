@@ -22,11 +22,20 @@ fn main() {
 
     // Write the audio to the converter a loop, or if you may, as a stream.
     let chunk_size = 4410; // 100ms
-    for i in 0..input.len() / chunk_size {
-        let resampled = converter.process(&input[i * chunk_size .. (i + 1) * chunk_size]).unwrap();
-        resampled.iter().for_each(|i| writer_48000.write_sample(*i).unwrap());
+    let mut resampled = vec![0.;chunk_size*480/441];
+    let mut frame_ptr = 0;
+    while frame_ptr < input.len() {
+        let (input_processed, output_generated) = converter.process_into(&input[frame_ptr..frame_ptr+chunk_size], &mut resampled).unwrap();
+        resampled[..output_generated].iter().for_each(|i| writer_48000.write_sample(*i).unwrap());
+        frame_ptr += input_processed;
     }
     // Drain the last bits
-    let resampled = converter.process_last(&[0.;0]).unwrap();
-    resampled.iter().for_each(|i| writer_48000.write_sample(*i).unwrap());
+    loop {
+        let (_, output_generated) = converter.process_into_last(&[0.;0], &mut resampled).unwrap();
+        if output_generated == 0 {
+            // No more data was available, we can assume it's drained
+            break;
+        }
+        resampled[..output_generated].iter().for_each(|i| writer_48000.write_sample(*i).unwrap());
+    }
 }
