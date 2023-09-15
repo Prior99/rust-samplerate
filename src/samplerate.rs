@@ -95,9 +95,24 @@ impl Samplerate {
         }
     }
 
-    fn _process(&self, input: &[f32], output_len: usize, end_of_input: bool) -> Result<Vec<f32>, Error> {
+    fn _process(
+        &self,
+        input: &[f32],
+        output_len: usize,
+        end_of_input: bool,
+    ) -> Result<Vec<f32>, Error> {
+        let mut output = vec![0f32; output_len];
+        self._process_mut(input, &mut output, output_len, end_of_input)
+    }
+
+    fn _process_mut(
+        &self,
+        input: &[f32],
+        output: &mut [f32],
+        output_len: usize,
+        end_of_input: bool,
+    ) -> Result<Vec<f32>, Error> {
         let channels = self.channels()?;
-        let mut output = vec![0f32;output_len];
         let mut src = SRC_DATA {
             data_in: input.as_ptr(),
             data_out: output.as_mut_ptr(),
@@ -111,19 +126,34 @@ impl Samplerate {
         };
         let error_int = unsafe { src_process(self.ptr, &mut src as *mut SRC_DATA) };
         match ErrorCode::from_int(error_int) {
-            ErrorCode::NoError => Ok(output[..src.output_frames_gen as usize*channels].into()),
+            ErrorCode::NoError => Ok(output[..src.output_frames_gen as usize * channels].into()),
             _ => Err(Error::from_int(error_int)),
         }
+    }
+
+    pub fn output_size(&self, input_len: usize) -> Result<usize, Error> {
+        let channels = self.channels()?;
+        Ok((self.ratio() * input_len as f64) as usize + channels)
     }
 
     /// Perform a samplerate conversion on a block of data (use `process_last` if it is the last one)
     /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
     /// interleaved.
     pub fn process(&self, input: &[f32]) -> Result<Vec<f32>, Error> {
-        let channels = self.channels()?;
-        self._process(input, (self.ratio() * input.len() as f64) as usize + channels, false)
+        let output_len = self.output_size(input.len())?;
+        self._process(input, output_len, false)
     }
-    
+
+    pub fn process_mut(
+        &self,
+        input: &[f32],
+        output: &mut [f32],
+        output_len: usize,
+        end_of_input: bool,
+    ) -> Result<Vec<f32>, Error> {
+        self._process_mut(input, output, output_len, end_of_input)
+    }
+
     /// Perform a samplerate conversion on last block of given input data.
     /// If the number of channels used was not `1` (Mono), the samples are expected to be stored
     /// interleaved.
